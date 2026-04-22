@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dottie - AI Creative Studio</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1e1e1e;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* TOP NAV */
+  .topbar {
+    background: #161616;
+    border-bottom: 1px solid #2a2a2a;
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .topbar-left {
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 0.01em;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #e0e0e0;
+    letter-spacing: 0.02em;
+  }
+  .orange-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #f97316; 
+    flex-shrink: 0;
+  }
+
+  /* MAIN */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* CHAT SCROLL AREA */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: #2e2e2e; border-radius: 4px; }
+
+  /* WELCOME / TIPS STATE */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 40px 24px;
+  }
+  .empty-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .empty-dot-lg {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #f97316;
+    opacity: 0.18;
+  }
+  .empty-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #555;
+    letter-spacing: 0.02em;
+  }
+  .tips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 520px;
+    width: 100%;
+  }
+  .tip-card {
+    background: #1a1a1a;
+    border: 1px solid #252525;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .tip-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #f97316; 
+    margin-bottom: 5px;
+    opacity: 0.9;
+  }
+  .tip-text {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  /* MESSAGES */
+  .msg-wrap {
+    display: flex;
+    gap: 10px;
+    padding: 0 24px;
+    max-width: 100%; 
+    width: 100%;
+    align-self: flex-start;
+  }
+  .msg-wrap.user {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+  }
+  .avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .avatar.user { background: #f97316; color: #fff; }
+  .avatar.ai   { background: #2a2a2a; color: #777; border: 1px solid #333; }
+
+  .bubble {
+    padding: 14px 18px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .bubble.user {
+    max-width: 68%; 
+    background: #252525;
+    border: 1px solid #333;
+    color: #e0e0e0;
+    border-radius: 12px 4px 12px 12px;
+  }
+  .bubble.ai {
+    max-width: 100%; 
+    width: 100%; 
+    background: #212121;
+    border: 1px solid #2a2a2a;
+    color: #d0d0d0;
+    border-radius: 4px 12px 12px 12px;
+  }
+  
+  /* MARKDOWN STYLING FOR AI BUBBLE */
+  .bubble.ai h1, .bubble.ai h2, .bubble.ai h3 {
+    color: #f97316; 
+    margin-top: 16px;
+    margin-bottom: 8px;
+  }
+  .bubble.ai h1:first-child, .bubble.ai h2:first-child, .bubble.ai h3:first-child { margin-top: 0; }
+  .bubble.ai p { margin-bottom: 12px; }
+  .bubble.ai p:last-child { margin-bottom: 0; }
+  .bubble.ai ul, .bubble.ai ol { margin-left: 24px; margin-bottom: 12px; }
+  .bubble.ai strong { color: #f97316; }
+
+  /* GEMINI STYLE COPY BUTTON */
+  .ai-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+  .copy-icon-btn {
+    background: transparent;
+    border: none;
+    color: #777;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .copy-icon-btn:hover { background: #2a2a2a; color: #e0e0e0; }
+  .copy-icon-btn svg { width: 16px; height: 16px; fill: currentColor; }
+  .copy-icon-btn.copied { color: #10B981; }
+
+  .attach-badge {
+    font-size: 11px;
+    color: #666;
+    margin-top: 5px;
+  }
+
+  /* MEDIA AREA STYLING */
+  .media-area { 
+    margin-top: 16px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: flex-start; 
+    gap: 10px;
+    background: #1a1a1a;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  /* THICK ORANGE CUSTOM AUDIO PLAYER */
+  .media-area audio { 
+    width: 50vw; 
+    max-width: 600px;
+    min-width: 250px;
+    height: 56px; 
+    outline: none;
+    border-radius: 28px;
+  }
+  .media-area audio::-webkit-media-controls-panel {
+    background-color: #212121;
+    border: 1px solid #f97316;
+  }
+  .media-area audio::-webkit-media-controls-play-button,
+  .media-area audio::-webkit-media-controls-mute-button {
+    background-color: #f97316;
+    border-radius: 50%;
+  }
+  .media-area audio::-webkit-media-controls-timeline {
+    background-color: rgba(249, 115, 22, 0.2); 
+    border-radius: 10px;
+    margin: 0 15px;
+    height: 8px; 
+  }
+  .media-area audio::-webkit-media-controls-current-time-display,
+  .media-area audio::-webkit-media-controls-time-remaining-display {
+    color: #f97316; 
+    font-weight: 600;
+  }
+
+  /* RESIZED MEDIA: Images and Video perfectly constrained */
+  .media-area img, .media-area video { 
+    max-width: 100%; 
+    max-height: 350px; /* Reduced height so it always fits nicely */
+    object-fit: contain; /* Prevents stretching */
+    border-radius: 8px; 
+    display: block; 
+  }
+  
+  .ui-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #aaa;
+    font-size: 12px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .ui-btn:hover { background: #333; color: #fff; border-color: #555; }
+
+  /* TYPING INDICATOR */
+  .dots span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: #555;
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: bounce 1.2s infinite;
+  }
+  .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40%           { transform: translateY(-5px); }
+  }
+
+  /* BOTTOM BAR */
+  .bottom-bar {
+    border-top: 1px solid #242424;
+    padding: 12px 24px 16px;
+    background: #161616;
+    flex-shrink: 0;
+  }
+  .attach-preview {
+    font-size: 11px;
+    color: #f97316;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .attach-remove {
+    background: none; border: none;
+    color: #666; font-size: 13px;
+    cursor: pointer; line-height: 1;
+  }
+  .attach-remove:hover { color: #f97316; }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #212121;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 6px 8px;
+    max-width: 780px;
+    margin: 0 auto;
+    transition: border-color 0.15s;
+  }
+  .input-row:focus-within { border-color: #3a3a3a; }
+
+  .attach-btn {
+    background: none; border: none;
+    color: #484848; font-size: 22px; font-weight: 300;
+    cursor: pointer; padding: 0 8px;
+    border-radius: 6px; line-height: 1;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .attach-btn:hover { background: #2a2a2a; color: #bbb; }
+
+  .chat-input {
+    flex: 1;
+    background: transparent; border: none; outline: none;
+    color: #e0e0e0; font-size: 14px;
+    resize: none; height: 36px; line-height: 36px;
+    font-family: inherit; padding: 0 4px;
+  }
+  .chat-input::placeholder { color: #555; }
+
+  /* DYNAMIC SEND BUTTON */
+  .send-btn {
+    background: rgba(249, 115, 22, 0.25); 
+    border: none;
+    border-radius: 8px; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: default; flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .send-btn svg { width: 13px; height: 13px; fill: rgba(255,255,255,0.4); transition: fill 0.2s; }
+  
+  .send-btn.ready {
+    background: #f97316; 
+    cursor: pointer;
+  }
+  .send-btn.ready svg { fill: #fff; }
+  .send-btn.ready:hover  { background: #ea580c; }
+  .send-btn.ready:active { transform: scale(0.95); }
+  
+  .send-btn:disabled { background: #2a2a2a !important; cursor: not-allowed; }
+  .send-btn:disabled svg { fill: #555 !important; }
+
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">AI Creative Studio</div>
+  <div class="brand">Dottie <div class="orange-dot"></div></div>
+</div>
+
+<div class="main">
+  <div class="chat-messages" id="chat-messages">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-brand">
+        <div class="empty-dot-lg"></div>
+        <div class="empty-title">What can I create for you?</div>
+      </div>
+      <div class="tips-grid">
+        <div class="tip-card"><div class="tip-label">Planner</div><div class="tip-text">"Help me brainstorm a video concept..."</div></div>
+        <div class="tip-card"><div class="tip-label">Voice</div><div class="tip-text">"Read this script in a sweet voice"</div></div>
+        <div class="tip-card"><div class="tip-label">SFX</div><div class="tip-text">"Add a massive cinematic explosion"</div></div>
+        <div class="tip-card"><div class="tip-label">Image</div><div class="tip-text">"Generate a portrait image of..."</div></div>
+        <div class="tip-card"><div class="tip-label">Music</div><div class="tip-text">"Add soft background music to this"</div></div>
+        <div class="tip-card"><div class="tip-label">Subtitle</div><div class="tip-text">"Add soft subtitles at the top"</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="attach-preview" id="attach-preview" style="display:none;">
+      <span id="attach-name"></span>
+      <button type="button" class="attach-remove" onclick="removeAttachment()" title="Remove">✕</button>
+    </div>
+    <div class="input-row">
+      <button type="button" class="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach video">+</button>
+      <input type="file" id="file-input" accept=".mp4,.mov,.avi,.mkv" onchange="onFileSelect(event)" />
+      <textarea
+        class="chat-input"
+        id="chat-input"
+        placeholder="Ask anything or generate media…"
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this); updateSendButton();"
+      ></textarea>
+      <button type="button" class="send-btn" id="send-btn" onclick="sendMessage()" title="Send">
+        <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BACKEND_URL = 'http://localhost:8000/api/generate';
+  const UPLOAD_URL  = 'http://localhost:8000/api/upload_video';
+  const SS_KEY      = 'dottie_state';
+
+  function loadState() {
+    try { const r = sessionStorage.getItem(SS_KEY); return r ? JSON.parse(r) : null; }
+    catch(e) { return null; }
+  }
+  
+  // SHIELD 1: Bypasses the 5MB browser crash limit by dropping media Data before saving.
+  function saveState(s) {
+    try { 
+      const safeState = {
+        ...s,
+        chatHistory: s.chatHistory.map(entry => ({ ...entry, mediaData: null }))
+      };
+      sessionStorage.setItem(SS_KEY, JSON.stringify(safeState)); 
+    } catch(e) { 
+      console.warn("Storage full or blocked, skipping cache."); 
+    }
+  }
+
+  let state = loadState() || {
+    chatHistory:      [],
+    musicContext:     '',
+    imageContext:     '',
+    voiceContext:     '',
+    sfxContext:       '',
+    videoContext:     '',
+    lastActiveAgent:  'None',
+    sizeChoice:       3,
+    targetDuration:   null,
+    previousSettings: {},
+    plannerSummary:   '',
+    videoSessionId:   '',
+    videoFilename:    'video.mp4',
+  };
+
+  let attachedFile = null;
+
+  function updateSendButton() {
+    const inputVal = document.getElementById('chat-input').value.trim();
+    const btn = document.getElementById('send-btn');
+    if (inputVal.length > 0 || attachedFile !== null) {
+      btn.classList.add('ready');
+    } else {
+      btn.classList.remove('ready');
+    }
+  }
+
+  function renderHistory() {
+    if (state.chatHistory.length === 0) return;
+    document.getElementById('empty-state').style.display = 'none';
+    for (const entry of state.chatHistory) {
+      // Smart Attachment Logic ensures badge only shows on the uploaded message
+      appendUserMessageDOM(entry.prompt, entry.uploadedNow ? entry.videoName : null);
+      appendAIMessageDOM(entry);
+    }
+    scrollBottom();
+    updateSendButton();
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+
+  function copyText(btn) {
+    const textToCopy = decodeURIComponent(btn.getAttribute('data-text'));
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      const originalHTML = btn.innerHTML;
+      btn.classList.add('copied');
+      btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = originalHTML;
+      }, 2000);
+    });
+  }
+
+  function appendUserMessageDOM(prompt, videoName) {
+    const container = document.getElementById('chat-messages');
+    const uWrap = document.createElement('div');
+    uWrap.className = 'msg-wrap user';
+    uWrap.innerHTML = `
+      <div class="avatar user">U</div>
+      <div class="bubble user">
+        ${escHtml(prompt)}
+        ${videoName ? `<div class="attach-badge">📎 ${escHtml(videoName)}</div>` : ''}
+      </div>`;
+    container.appendChild(uWrap);
+  }
+
+  function appendAIMessageDOM(entry) {
+    const container = document.getElementById('chat-messages');
+    const aWrap = document.createElement('div');
+    aWrap.className = 'msg-wrap';
+    
+    const rawReasoning = entry.reasoning || '';
+    const formattedHtml = marked.parse(rawReasoning);
+
+    let copyBtn = '';
+    if (rawReasoning.length > 0) {
+      const encodedText = encodeURIComponent(rawReasoning);
+      copyBtn = `
+        <div class="ai-actions">
+          <button type="button" class="copy-icon-btn" data-text="${encodedText}" onclick="copyText(this)" title="Copy Text">
+            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          </button>
+        </div>`;
+    }
+
+    let media = '';
+    if (entry.mediaType === 'audio' && entry.mediaData) {
+      media = `<div class="media-area">
+        <audio controls src="data:audio/wav;base64,${entry.mediaData}"></audio>
+        <a class="ui-btn" style="margin-top: 6px;" href="data:audio/wav;base64,${entry.mediaData}" download="audio.wav">⬇ Download Audio</a>
+      </div>`;
+    } else if (entry.mediaType === 'image' && entry.mediaData) {
+      media = `<div class="media-area">
+        <img src="data:image/jpeg;base64,${entry.mediaData}" alt="Generated image" />
+        <a class="ui-btn" style="margin-top: 6px;" href="data:image/jpeg;base64,${entry.mediaData}" download="image.jpg">⬇ Download Image</a>
+      </div>`;
+    } else if (entry.mediaType === 'video' && entry.mediaData) {
+      media = `<div class="media-area">
+        <video controls src="data:video/mp4;base64,${entry.mediaData}"></video>
+        <a class="ui-btn" style="margin-top: 6px;" href="data:video/mp4;base64,${entry.mediaData}" download="video.mp4">⬇ Download Video</a>
+      </div>`;
+    }
+
+    aWrap.innerHTML = `
+      <div class="avatar ai">D</div>
+      <div class="bubble ai">
+        ${formattedHtml}
+        ${copyBtn}
+        ${media}
+      </div>`;
+    container.appendChild(aWrap);
+  }
+
+  function scrollBottom() {
+    const c = document.getElementById('chat-messages');
+    c.scrollTop = c.scrollHeight;
+  }
+
+  function onFileSelect(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    attachedFile = f;
+    document.getElementById('attach-name').textContent = '📎 ' + f.name;
+    document.getElementById('attach-preview').style.display = 'flex';
+    updateSendButton(); 
+  }
+
+  function removeAttachment() {
+    attachedFile = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('attach-preview').style.display = 'none';
+    updateSendButton(); 
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { 
+      e.preventDefault(); 
+      if(document.getElementById('send-btn').classList.contains('ready')){
+        sendMessage(); 
+      }
+    }
+  }
+
+  function autoResize(el) {
+    el.style.height = '36px';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  async function sendMessage() {
+    const input  = document.getElementById('chat-input');
+    const prompt = input.value.trim();
+    if (!prompt && !attachedFile) return;
+
+    const sendBtn      = document.getElementById('send-btn');
+    sendBtn.disabled   = true;
+    input.value        = '';
+    input.style.height = '36px';
+    updateSendButton(); 
+
+    const emptyEl = document.getElementById('empty-state');
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const container     = document.getElementById('chat-messages');
+    const videoAttached = !!attachedFile;
+    const videoName     = attachedFile ? attachedFile.name : state.videoFilename;
+
+    // Immediately display the user's message
+    appendUserMessageDOM(prompt, videoAttached ? attachedFile.name : null);
+
+    const tWrap = document.createElement('div');
+    tWrap.className = 'msg-wrap';
+    tWrap.id = 'typing-indicator';
+    tWrap.innerHTML = `
+      <div class="avatar ai">D</div>
+      <div class="bubble ai"><div class="dots"><span></span><span></span><span></span></div></div>`;
+    container.appendChild(tWrap);
+    scrollBottom();
+
+    try {
+      if (videoAttached) {
+        const fd = new FormData();
+        fd.append('file', attachedFile, attachedFile.name);
+        const ur = await fetch(UPLOAD_URL, { method: 'POST', body: fd });
+        if (ur.ok) {
+          const ud = await ur.json();
+          state.videoSessionId = ud.session_id;
+          state.videoFilename  = ud.filename;
+        }
+      }
+
+      const recent = state.chatHistory.slice(-6);
+      const chatContext = [];
+      for (const m of recent) {
+        chatContext.push({ role: 'user',      content: m.prompt   });
+        chatContext.push({ role: 'assistant', content: m.reasoning });
+      }
+
+      const payload = {
+        input:             prompt,
+        chat_context:      chatContext,
+        planner_summary:   state.plannerSummary,
+        last_active_agent: state.lastActiveAgent,
+        previous_music:    state.musicContext,
+        previous_image:    state.imageContext,
+        previous_voice:    state.voiceContext,
+        previous_sfx:      state.sfxContext,
+        previous_video:    state.videoContext,
+        size_choice:       state.sizeChoice,
+        target_duration:   state.targetDuration,
+        previous_settings: state.previousSettings,
+      };
+      if (state.videoSessionId) payload.session_id = state.videoSessionId;
+
+      const resp = await fetch(BACKEND_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Server returned HTTP status ${resp.status}`);
+      }
+
+      // SHIELD 2: The ultimate bulletproof stream reader for large Voiceover payloads
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder("utf8");
+      let buffer = "";
+      const typingBubble = tWrap.querySelector('.bubble.ai');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+        }
+        
+        // Force processing of final line even if the network didn't append a newline
+        if (done) {
+          buffer += decoder.decode(); 
+          if (buffer.trim() && !buffer.endsWith('\n')) buffer += '\n'; 
+        }
+
+        if (buffer.includes('\n')) {
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Retain incomplete chunks
+          
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            
+            let chunk;
+            try {
+              chunk = JSON.parse(line);
+            } catch(e) {
+              continue; // Gracefully ignore broken logs
+            }
+            
+            if (chunk.type === "status") {
+               typingBubble.innerHTML = `<span style="color: #f97316;">${chunk.message}</span> <div class="dots" style="display:inline-block; margin-left: 8px;"><span></span><span></span><span></span></div>`;
+               scrollBottom();
+               
+            } else if (chunk.type === "error") {
+               tWrap.remove();
+               const eWrap = document.createElement('div');
+               eWrap.className = 'msg-wrap';
+               eWrap.innerHTML = `<div class="avatar ai">D</div><div class="bubble ai" style="color:#f97316;">Server Error: ${escHtml(chunk.message)}</div>`;
+               container.appendChild(eWrap);
+               
+               sendBtn.disabled = false;
+               updateSendButton();
+               return; 
+               
+            } else if (chunk.type === "final") {
+               const data = chunk.data;
+               tWrap.remove(); 
+               
+               const entry = {
+                 id:            state.chatHistory.length,
+                 prompt:        prompt,
+                 reasoning:     data.reasoning  || '',
+                 mediaData:     data.media_data || null,
+                 mediaType:     data.media_type || null,
+                 hasVideo:      videoAttached || !!state.videoSessionId,
+                 uploadedNow:   videoAttached, // Strict attachment tracking
+                 videoName:     videoName,
+               };
+
+               state.musicContext     = data.refined_music      ?? state.musicContext;
+               state.imageContext     = data.refined_image      ?? state.imageContext;
+               state.voiceContext     = data.refined_voice      ?? state.voiceContext;
+               state.sfxContext       = data.refined_sfx        ?? state.sfxContext;
+               state.videoContext     = data.refined_video      ?? state.videoContext;
+               state.lastActiveAgent  = data.last_active_agent  ?? state.lastActiveAgent;
+               state.sizeChoice       = data.size_choice        ?? state.sizeChoice;
+               state.targetDuration   = data.target_duration    ?? state.targetDuration;
+               state.previousSettings = data.previous_settings  ?? state.previousSettings;
+               state.plannerSummary   = data.planner_summary    ?? state.plannerSummary;
+               state.videoSessionId   = data.session_id         || '';
+               if (!state.videoSessionId) state.videoFilename   = 'video.mp4';
+
+               state.chatHistory.push(entry);
+               saveState(state);
+               
+               appendAIMessageDOM(entry);
+            }
+          }
+        }
+        if (done) break;
+      }
+
+    } catch (err) {
+      console.error("System Crash:", err);
+      if (tWrap.parentNode) tWrap.remove();
+      const eWrap = document.createElement('div');
+      eWrap.className = 'msg-wrap';
+      eWrap.innerHTML = `<div class="avatar ai">D</div><div class="bubble ai" style="color:#f97316;"><b>System Error:</b> Could not connect to Dottie. Check your terminal!</div>`;
+      container.appendChild(eWrap);
+    }
+
+    if (videoAttached) removeAttachment();
+    sendBtn.disabled = false;
+    updateSendButton(); 
+    scrollBottom();
+  }
+
+  renderHistory();
+</script>
+</body>
+</html>
