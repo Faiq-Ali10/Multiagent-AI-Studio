@@ -4,6 +4,9 @@ from typing import Sequence
 from pydantic import BaseModel
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
+import concurrent.futures
+
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 from models.llm import LLM_Model
 from config import Settings
@@ -171,7 +174,7 @@ class ContentSupervisor:
             if state.get("last_image_refined"):
                 contexts.append(f"Image: {state.get('last_image_refined')}")
             if state.get("last_voice_refined"):
-                contexts.append(f"Voice: {state.get('last_voice_refined')}")
+                contexts.append(f"Voice Over: {state.get('last_voice_refined')}")
             if state.get("last_sfx_refined"):
                 contexts.append(f"SFX: {state.get('last_sfx_refined')}")
             if state.get("last_video_refined"):
@@ -205,9 +208,6 @@ USER INPUT
                 SystemMessage(content=system_instructions),
                 HumanMessage(content=human_content),
             ]
-
-            # 4. Invoke using the array
-            response = self.llm.invoke(messages_for_llm)
 
             print("@@@ Supervisor Prompt @@@\n", flush=True)
             print(human_content, flush=True)
@@ -358,36 +358,54 @@ USER INPUT
             "safety_violation": False,  # Reset the flag for the next turn
         }
 
-    def voice_over_node(self, state: AgentState) -> dict:
+    async def voice_over_node(self, state: AgentState) -> dict:
         print("@@@ ENTERING VOICE OVER AGENT @@@", flush=True)
 
         user_input = ""
         if state.get("messages"):
             user_input = list(reversed(state["messages"]))[0].content
 
-        result = self.voice_engine.invoke(
-            {
-                "original": user_input,
-                "previous_transcript": state.get("last_voice_refined"),
-                "previous_settings": state.get("previous_settings"),
-            }
-        )
-
-        new_messages = state.get("messages", []) + [
-            AIMessage(
-                content="Voiceover generated successfully!",
-                name="voice_over_node",
-            )
-        ]
-
-        return {
-            "messages": self._limit_msgs(new_messages),
-            "media_data": result.get("audio_b64"),
-            "media_type": "audio",
-            "last_voice_refined": result.get("transcript"),
-            "previous_settings": result.get("settings", state.get("previous_settings")),
-            "last_active_agent": "voice_over",
+        invoke_input = {
+            "original": user_input,
+            "previous_transcript": state.get("last_voice_refined"),
+            "previous_settings": state.get("previous_settings"),
         }
+
+        try:
+            # THE FINAL FIX: We changed .invoke() to .ainvoke()
+            # We also dropped the threading hack entirely because it's now perfectly async!
+            result = await self.voice_engine.ainvoke(invoke_input)
+
+            new_messages = state.get("messages", []) + [
+                AIMessage(
+                    content="Voiceover generated successfully!",
+                    name="voice_over_node",
+                )
+            ]
+
+            return {
+                "messages": self._limit_msgs(new_messages),
+                "media_data": result.get("audio_b64"),
+                "media_type": "audio",
+                "last_voice_refined": result.get("transcript"),
+                "previous_settings": result.get(
+                    "settings", state.get("previous_settings")
+                ),
+                "last_active_agent": "voice_over",
+            }
+
+        except Exception as e:
+            print(f"@@@ VOICE OVER CRASHED: {str(e)} @@@", flush=True)
+            new_messages = state.get("messages", []) + [
+                AIMessage(
+                    content=f"My voice engine encountered an error: {str(e)}",
+                    name="voice_over_node",
+                )
+            ]
+            return {
+                "messages": self._limit_msgs(new_messages),
+                "last_active_agent": "voice_over",
+            }
 
     def sfx_node(self, state: AgentState) -> dict:
         print("@@@ ENTERING SFX AGENT @@@", flush=True)

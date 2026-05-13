@@ -101,6 +101,8 @@ class VoiceAgent:
 
     def generate_voice_node(self, state: VoiceState) -> VoiceState:
         import threading  # Import standard threading to isolate the event loop
+        import tempfile  # <--- THE MAGIC FIX
+        import os
 
         # These are now pre-formatted by the LLM for Edge-TTS!
         transcript = state.get("transcript", "")
@@ -116,7 +118,13 @@ class VoiceAgent:
                     text=transcript, voice=voice_name, rate=rate_str, pitch=pitch_str
                 )
 
-                temp_path = "temp_voice.mp3"
+                # Generate a safe, hidden file path in the OS temp directory
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".mp3"
+                ) as tmp_file:
+                    temp_path = tmp_file.name
+
+                # Save it to the hidden path so Uvicorn doesn't restart!
                 await communicate.save(temp_path)
 
                 with open(temp_path, "rb") as audio_file:
@@ -132,8 +140,7 @@ class VoiceAgent:
             except Exception as e:
                 print(f"@@ TTS Engine Error: {str(e)} @@")
 
-        # THE FIX: Isolate the async execution in a new thread
-        # This prevents the "asyncio.run() cannot be called from a running event loop" error in FastAPI
+        # Isolate the async execution in a new thread
         def thread_worker():
             asyncio.run(run_tts())
 
